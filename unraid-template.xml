@@ -14,7 +14,7 @@
   <WebUI>http://[IP]:[PORT:9199]/status</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/UberMetroid/manta/main/unraid-template.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/UberMetroid/manta/main/assets/manta-icon.png</Icon>
-  <ExtraParams>-- entrypoint=/bin/manta-init</ExtraParams>
+  <ExtraParams>--restart=unless-stopped --security-opt=no-new-privileges:true --entrypoint=/bin/manta-init --health-cmd="/bin/manta-health --check" --health-interval=30s --health-timeout=5s --health-retries=3</ExtraParams>
   <PostArgs/>
   <CPUset/>
   <DonateText/>
