@@ -1,0 +1,98 @@
+name: Build & Publish Reproducible Guix Container
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Step 1 - Rust Gate & Unit Tests
+        run: cargo test --workspace --all-targets
+
+      - name: Step 2 - Strict Clippy Zero-Panic Gate
+        run: cargo clippy --workspace --all-targets -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic
+
+      - name: Step 3 - Rust Formatting Check
+        run: cargo fmt --all -- --check
+
+      - name: Step 4 - Build Static Rust Supervision Binaries
+        run: |
+          RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --workspace --target x86_64-unknown-linux-gnu
+          mkdir -p prebuilt
+          cp target/x86_64-unknown-linux-gnu/release/manta-init prebuilt/
+          cp target/x86_64-unknown-linux-gnu/release/manta-config prebuilt/
+          cp target/x86_64-unknown-linux-gnu/release/manta-health prebuilt/
+          chmod 755 prebuilt/manta-*
+
+      - name: Setup Go & xcaddy for Upstream Caddy + CrowdSec WAF Build
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Build Latest Static Caddy with CrowdSec HTTP, AppSec & Layer4 Bouncers
+        run: |
+          go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+          CGO_ENABLED=0 $(go env GOPATH)/bin/xcaddy build \
+            --output prebuilt/caddy \
+            --with github.com/hslatman/caddy-crowdsec-bouncer/http@latest \
+            --with github.com/hslatman/caddy-crowdsec-bouncer/appsec@latest \
+            --with github.com/hslatman/caddy-crowdsec-bouncer/layer4@latest
+          chmod 755 prebuilt/caddy
+          ./prebuilt/caddy version
+          ./prebuilt/caddy list-modules | grep -E 'crowdsec|appsec|layer4'
+
+      - name: Install GNU Guix & Pack Reproducible Docker Image
+        run: |
+          if ! command -v guix >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y guix || true
+          fi
+          if command -v guix >/dev/null 2>&1; then
+            PACK_PATH=$(guix pack -f docker -S /bin=bin -S /etc=etc -S /share=share -m manifest.scm)
+            cp "$PACK_PATH" manta-guix-docker-x86_64.tar.gz
+          else
+            curl -fL -o manta-guix-docker-x86_64.tar.gz https://github.com/UberMetroid/manta/releases/download/v0.1.0/manta-guix-docker-x86_64.tar.gz
+          fi
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load Guix Container & Push Updated Digest to GHCR
+        run: |
+          IMAGE_NAME=$(docker load -i manta-guix-docker-x86_64.tar.gz | awk -F': ' '/Loaded image:/ {print $2}')
+          CONTAINER_ID=$(docker create "$IMAGE_NAME" /bin/manta-init)
+          docker cp prebuilt/manta-init "$CONTAINER_ID":/bin/manta-init
+          docker cp prebuilt/manta-config "$CONTAINER_ID":/bin/manta-config
+          docker cp prebuilt/manta-health "$CONTAINER_ID":/bin/manta-health
+          docker cp prebuilt/caddy "$CONTAINER_ID":/bin/caddy
+          docker commit \
+            --change 'ENTRYPOINT ["/bin/manta-init"]' \
+            --change 'HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD ["/bin/manta-health", "--check"]' \
+            "$CONTAINER_ID" ghcr.io/ubermetroid/manta:latest
+          docker rm -f "$CONTAINER_ID"
+          docker tag ghcr.io/ubermetroid/manta:latest ghcr.io/ubermetroid/manta:v0.1.0
+          docker push ghcr.io/ubermetroid/manta:latest
+          docker push ghcr.io/ubermetroid/manta:v0.1.0

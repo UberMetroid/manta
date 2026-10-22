@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>manta</Name>
+  <Repository>ghcr.io/ubermetroid/manta:latest</Repository>
+  <Registry>https://ghcr.io/ubermetroid/manta</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/UberMetroid/manta</Support>
+  <Project>https://github.com/UberMetroid/manta</Project>
+  <Overview>Manta: Hardened, reproducible GNU Guix + zero-dependency Rust Caddy v2 Reverse Proxy &amp; CrowdSec AppSec WAF Bouncer appliance for the media stack (Emby, Jellyfin, Seerr, and *arr). Enforces Cloudflare trusted proxy CIDRs, HSTS/security headers, Swagger/OpenAPI 403 lockdown, and live Caddyfile auto-reload.</Overview>
+  <Category>Network:Proxy Security:</Category>
+  <WebUI>http://[IP]:[PORT:9199]/status</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/UberMetroid/manta/main/unraid-template.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/UberMetroid/manta/main/assets/manta-icon.png</Icon>
+  <ExtraParams>-- entrypoint=/bin/manta-init</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="HTTP Reverse Proxy Port" Target="80" Default="8280" Mode="tcp" Description="Primary HTTP Reverse Proxy Port (mapped to 8280 by default for side-by-side testing with existing Caddy)" Type="Port" Display="always" Required="true" Mask="false">8280</Config>
+  <Config Name="Secondary HTTP Port" Target="81" Default="8281" Mode="tcp" Description="Secondary HTTP Reverse Proxy Port (e.g. direct Jellyfin/Tailscale listener)" Type="Port" Display="always" Required="false" Mask="false">8281</Config>
+  <Config Name="Health &amp; WAF Status API" Target="9199" Default="9199" Mode="tcp" Description="JSON Health, Caddy &amp; CrowdSec LAPI/AppSec Status API (/status)" Type="Port" Display="always" Required="false" Mask="false">9199</Config>
+  <Config Name="AppData Config Path" Target="/config" Default="/mnt/user/appdata/manta/config" Mode="rw" Description="Persistent Caddy configuration directory (and optional user Caddyfile or caddy.env)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/manta/config</Config>
+  <Config Name="AppData Data Path" Target="/data" Default="/mnt/user/appdata/manta/data" Mode="rw" Description="Persistent Caddy data &amp; certificate storage directory" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/manta/data</Config>
+  <Config Name="Access Logs Path" Target="/var/log/caddy" Default="/mnt/user/appdata/manta/logs" Mode="rw" Description="Structured JSON access log directory for CrowdSec parsing" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/manta/logs</Config>
+  <Config Name="CrowdSec Bouncer API Key" Target="CROWDSEC_API_KEY" Default="" Mode="" Description="CrowdSec LAPI bouncer API key required for real-time IP &amp; AppSec WAF decisions" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="CrowdSec LAPI URL" Target="CROWDSEC_URL" Default="http://172.17.0.1:8091" Mode="" Description="CrowdSec Local API (LAPI) endpoint URL" Type="Variable" Display="always" Required="true" Mask="false">http://172.17.0.1:8091</Config>
+  <Config Name="CrowdSec AppSec WAF URL" Target="APPSEC_URL" Default="http://172.17.0.1:7422" Mode="" Description="CrowdSec AppSec WAF engine endpoint URL" Type="Variable" Display="always" Required="true" Mask="false">http://172.17.0.1:7422</Config>
+  <Config Name="Extra Trusted Proxy CIDRs" Target="TRUSTED_PROXIES" Default="127.0.0.1/32 172.17.0.1/32 100.64.0.0/10" Mode="" Description="Space or comma-separated local/Tailscale trusted proxy CIDRs (merged automatically with all 22 Cloudflare IPv4/IPv6 ranges)" Type="Variable" Display="always" Required="false" Mask="false">127.0.0.1/32 172.17.0.1/32 100.64.0.0/10</Config>
+  <Config Name="Emby Domain(s)" Target="EMBY_DOMAIN" Default="http://green.clownhouse.io, http://jukebox.donkey-augmented.ts.net" Mode="" Description="Caddy site address(es) for Emby reverse proxy" Type="Variable" Display="advanced" Required="false" Mask="false">http://green.clownhouse.io, http://jukebox.donkey-augmented.ts.net</Config>
+  <Config Name="Emby Upstream" Target="EMBY_UPSTREAM" Default="172.17.0.1:9096" Mode="" Description="Emby backend host:port" Type="Variable" Display="advanced" Required="false" Mask="false">172.17.0.1:9096</Config>
+  <Config Name="Jellyfin Domain(s)" Target="JELLYFIN_DOMAIN" Default="http://purple.clownhouse.io, http://:81" Mode="" Description="Caddy site address(es) for Jellyfin reverse proxy" Type="Variable" Display="advanced" Required="false" Mask="false">http://purple.clownhouse.io, http://:81</Config>
+  <Config Name="Jellyfin Upstream" Target="JELLYFIN_UPSTREAM" Default="172.17.0.1:8096" Mode="" Description="Jellyfin backend host:port" Type="Variable" Display="advanced" Required="false" Mask="false">172.17.0.1:8096</Config>
+  <Config Name="Seerr Domain(s)" Target="SEERR_DOMAIN" Default="http://oracle.clownhouse.io" Mode="" Description="Caddy site address(es) for Seerr reverse proxy" Type="Variable" Display="advanced" Required="false" Mask="false">http://oracle.clownhouse.io</Config>
+  <Config Name="Seerr Upstream" Target="SEERR_UPSTREAM" Default="172.17.0.1:5055" Mode="" Description="Seerr backend host:port" Type="Variable" Display="advanced" Required="false" Mask="false">172.17.0.1:5055</Config>
+  <Config Name="Drop Privileges (Unprivileged Caddy)" Target="DROP_PRIVS" Default="false" Mode="" Description="Run Caddy as unprivileged PUID/PGID (set true when binding ports &gt;=1024 or with CAP_NET_BIND_SERVICE)" Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="Unprivileged user UID (Unraid nobody=99)" Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Unprivileged group GID (Unraid users=100)" Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+  <Config Name="UMASK" Target="UMASK" Default="002" Mode="" Description="File creation umask (002 = 775 dirs / 664 files)" Type="Variable" Display="advanced" Required="false" Mask="false">002</Config>
+</Container>

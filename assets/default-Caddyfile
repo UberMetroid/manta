@@ -1,0 +1,147 @@
+{
+	auto_https off
+	admin 127.0.0.1:2019
+	order crowdsec first
+	order appsec after crowdsec
+
+	servers {
+		trusted_proxies static __TRUSTED_PROXIES__
+		client_ip_headers CF-Connecting-IP X-Forwarded-For
+	}
+
+	crowdsec {
+		api_url __CROWDSEC_URL__
+		api_key {env.CROWDSEC_API_KEY}
+		ticker_interval 15s
+		appsec_url __APPSEC_URL__
+	}
+}
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+		-X-Powered-By
+	}
+}
+
+(common_log) {
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 50MiB
+			roll_keep 5
+		}
+		format json
+	}
+}
+
+# ==============================================================================
+# Emby (__EMBY_DOMAIN__)
+# Protected by CrowdSec Bouncer + AppSec WAF
+# ==============================================================================
+__EMBY_DOMAIN__ {
+	import common_log
+	import security_headers
+	crowdsec
+
+	# Block public access to internal Swagger / OpenAPI schema endpoints
+	@api_docs {
+		path /emby/swagger* /swagger* /emby/openapi* /openapi* /emby/api-docs* /api-docs*
+	}
+	handle @api_docs {
+		respond "Forbidden" 403
+	}
+
+	# Run AppSec WAF on auth/API/web routes; exclude heavy media streaming & websockets
+	@waf_inspect {
+		not path /emby/Videos/* /Videos/* /emby/Audio/* /Audio/* /embywebsocket* /socket* /emby/Items/*/Images/* /Items/*/Images/* /emby/Sessions/Playing* /Sessions/Playing*
+	}
+	handle @waf_inspect {
+		appsec
+		reverse_proxy __EMBY_UPSTREAM__ {
+			header_up X-Forwarded-For {client_ip}
+			header_up X-Real-IP {client_ip}
+			header_up X-Forwarded-Proto https
+			flush_interval -1
+		}
+	}
+
+	handle {
+		reverse_proxy __EMBY_UPSTREAM__ {
+			header_up X-Forwarded-For {client_ip}
+			header_up X-Real-IP {client_ip}
+			header_up X-Forwarded-Proto https
+			flush_interval -1
+		}
+	}
+}
+
+# ==============================================================================
+# Jellyfin (__JELLYFIN_DOMAIN__)
+# Protected by CrowdSec Bouncer + AppSec WAF
+# ==============================================================================
+__JELLYFIN_DOMAIN__ {
+	import common_log
+	import security_headers
+	crowdsec
+
+	# Block public access to internal Swagger / OpenAPI schema endpoints
+	@jellyfin_docs {
+		path /api-docs* /swagger* /openapi* /jellyfin/api-docs* /jellyfin/swagger* /jellyfin/openapi*
+	}
+	handle @jellyfin_docs {
+		respond "Forbidden" 403
+	}
+
+	# Run AppSec WAF on auth/API/web routes; exclude heavy media streaming, images & websockets
+	@jellyfin_waf {
+		not path /Videos/* /Audio/* /socket* /Items/*/Images/* /Sessions/Playing* /hls/* /LiveTv/* /jellyfin/Videos/* /jellyfin/Audio/* /jellyfin/socket* /jellyfin/Items/*/Images/* /jellyfin/Sessions/Playing* /jellyfin/hls/* /jellyfin/LiveTv/*
+	}
+	handle @jellyfin_waf {
+		appsec
+		reverse_proxy __JELLYFIN_UPSTREAM__ {
+			header_up X-Forwarded-For {client_ip}
+			header_up X-Real-IP {client_ip}
+			header_up X-Forwarded-Proto https
+			flush_interval -1
+		}
+	}
+
+	handle {
+		reverse_proxy __JELLYFIN_UPSTREAM__ {
+			header_up X-Forwarded-For {client_ip}
+			header_up X-Real-IP {client_ip}
+			header_up X-Forwarded-Proto https
+			flush_interval -1
+		}
+	}
+}
+
+# ==============================================================================
+# Seerr (__SEERR_DOMAIN__) - Protected by CrowdSec Bouncer + AppSec WAF
+# ==============================================================================
+__SEERR_DOMAIN__ {
+	import common_log
+	import security_headers
+	crowdsec
+
+	# Block public access to Seerr Swagger / API documentation
+	@seerr_docs {
+		path /api-docs* /swagger* /openapi*
+	}
+	handle @seerr_docs {
+		respond "Forbidden" 403
+	}
+
+	handle {
+		appsec
+		reverse_proxy __SEERR_UPSTREAM__ {
+			header_up X-Forwarded-For {client_ip}
+			header_up X-Real-IP {client_ip}
+			header_up X-Forwarded-Proto https
+		}
+	}
+}
