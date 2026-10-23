@@ -70,6 +70,9 @@ __EMBY_DOMAIN__ {
 	}
 
 	handle {
+		header Cache-Control "private, no-store, no-cache"
+		header CDN-Cache-Control "no-store"
+		header Cloudflare-CDN-Cache-Control "no-store"
 		reverse_proxy __EMBY_UPSTREAM__ {
 			header_up X-Forwarded-For {client_ip}
 			header_up X-Real-IP {client_ip}
@@ -98,7 +101,7 @@ __JELLYFIN_DOMAIN__ {
 
 	# Run AppSec WAF on auth/API/web routes; exclude heavy media streaming, images & websockets
 	@jellyfin_waf {
-		not path /Videos/* /Audio/* /socket* /Items/*/Images/* /Sessions/Playing* /hls/* /LiveTv/* /jellyfin/Videos/* /jellyfin/Audio/* /jellyfin/socket* /jellyfin/Items/*/Images/* /jellyfin/Sessions/Playing* /jellyfin/hls/* /jellyfin/LiveTv/*
+		not path /Videos/* /videos/* /Audio/* /audio/* /socket* /Items/*/Images/* /Sessions/Playing* /hls/* /LiveTv/* /jellyfin/Videos/* /jellyfin/videos/* /jellyfin/Audio/* /jellyfin/socket* /jellyfin/Items/*/Images/* /jellyfin/Sessions/Playing* /jellyfin/hls/* /jellyfin/LiveTv/*
 	}
 	handle @jellyfin_waf {
 		appsec
@@ -111,6 +114,9 @@ __JELLYFIN_DOMAIN__ {
 	}
 
 	handle {
+		header Cache-Control "private, no-store, no-cache"
+		header CDN-Cache-Control "no-store"
+		header Cloudflare-CDN-Cache-Control "no-store"
 		reverse_proxy __JELLYFIN_UPSTREAM__ {
 			header_up X-Forwarded-For {client_ip}
 			header_up X-Real-IP {client_ip}
